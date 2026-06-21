@@ -1,16 +1,8 @@
 from docx import Document
-from docx.shared import Pt, RGBColor, Inches
+from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
-import copy
-
-def set_table_style(table):
-    for row in table.rows:
-        for cell in row.cells:
-            for para in cell.paragraphs:
-                for run in para.runs:
-                    run.font.size = Pt(10)
 
 def add_heading(doc, text, level=1, color=None):
     h = doc.add_heading(text, level=level)
@@ -19,6 +11,15 @@ def add_heading(doc, text, level=1, color=None):
         if color:
             run.font.color.rgb = RGBColor(*color)
     return h
+
+def set_cell_bg(cell, hex_color):
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    shd = OxmlElement('w:shd')
+    shd.set(qn('w:val'), 'clear')
+    shd.set(qn('w:color'), 'auto')
+    shd.set(qn('w:fill'), hex_color)
+    tcPr.append(shd)
 
 def add_table(doc, headers, rows, header_bg=None):
     table = doc.add_table(rows=1 + len(rows), cols=len(headers))
@@ -31,19 +32,117 @@ def add_table(doc, headers, rows, header_bg=None):
         run.bold = True
         run.font.size = Pt(10)
         if header_bg:
-            tc = cell._tc
-            tcPr = tc.get_or_add_tcPr()
-            shd = OxmlElement('w:shd')
-            shd.set(qn('w:val'), 'clear')
-            shd.set(qn('w:color'), 'auto')
-            shd.set(qn('w:fill'), header_bg)
-            tcPr.append(shd)
+            set_cell_bg(cell, header_bg)
     for r_idx, row_data in enumerate(rows):
         row = table.rows[r_idx + 1]
         for c_idx, val in enumerate(row_data):
             cell = row.cells[c_idx]
             cell.text = str(val)
             cell.paragraphs[0].runs[0].font.size = Pt(10)
+    return table
+
+def add_schedule_table(doc, header_bg='D9E2F3'):
+    """하루 일정 표 — 코스 셀에 세부 항목을 줄바꿈으로 추가"""
+    schedule = [
+        {
+            'time': '10:00',
+            'title': '퍼스널컬러 분석',
+            'details': [
+                '웜톤/쿨톤 세부 계절 유형 분류 (봄·여름·가을·겨울)',
+                '얼굴형 분석',
+                '체형 분석',
+            ],
+            'note': '✅ 포함',
+        },
+        {
+            'time': '11:00',
+            'title': '올리브영 & 약국 쇼핑',
+            'details': [
+                '퍼스널컬러 기반 맞춤 제품 추천',
+                '명동 올리브영 메가스토어',
+                '명동 인근 약국',
+            ],
+            'note': '💳 쇼핑비 개별 결제',
+        },
+        {
+            'time': '13:30',
+            'title': '피부진단 & 에스테틱',
+            'details': [
+                '전문 에스테티션 1:1 피부 진단',
+                '기초 페이셜 클렌징 / 수분 앰플 집중 관리 / 블랙헤드 & 모공 관리 중 택 1',
+            ],
+            'note': '💳 시술비 개별 결제',
+        },
+        {
+            'time': '15:30',
+            'title': '헤어 & 메이크업',
+            'details': [
+                '명동 제휴 헤어숍 스타일링',
+                '한국식 글로우 메이크업 풀코스',
+            ],
+            'note': '✅ 포함',
+        },
+        {
+            'time': '17:30',
+            'title': '프로필 촬영',
+            'details': [
+                '명동 인근 실내 스튜디오',
+                '전문 포토그래퍼 동행',
+                '한국식 프로필 컷',
+            ],
+            'note': '✅ 포함',
+        },
+        {
+            'time': '19:30',
+            'title': '해산',
+            'details': [],
+            'note': '명동역 인근',
+        },
+        {
+            'time': '별도 날짜',
+            'title': '명동 TOP5 병원 시술 예약 대행',
+            'details': [
+                '원하는 시술 + 날짜 선택',
+                '피부과 · 성형외과 연결',
+                '시술비는 병원 현장 결제',
+            ],
+            'note': '🏥 예약 대행',
+        },
+    ]
+
+    table = doc.add_table(rows=1 + len(schedule), cols=3)
+    table.style = 'Table Grid'
+
+    # 헤더
+    for i, h in enumerate(['시간', '코스', '안내']):
+        cell = table.rows[0].cells[i]
+        cell.text = h
+        cell.paragraphs[0].runs[0].bold = True
+        cell.paragraphs[0].runs[0].font.size = Pt(10)
+        set_cell_bg(cell, header_bg)
+
+    for r_idx, item in enumerate(schedule):
+        row = table.rows[r_idx + 1]
+
+        # 시간 셀
+        row.cells[0].text = item['time']
+        row.cells[0].paragraphs[0].runs[0].font.size = Pt(10)
+
+        # 코스 셀 — 제목 bold + 세부 항목
+        course_cell = row.cells[1]
+        course_cell.paragraphs[0].clear()
+        title_run = course_cell.paragraphs[0].add_run(item['title'])
+        title_run.bold = True
+        title_run.font.size = Pt(10)
+        for detail in item['details']:
+            p = course_cell.add_paragraph('· ' + detail)
+            p.runs[0].font.size = Pt(9)
+            p.paragraph_format.space_before = Pt(1)
+
+        # 안내 셀
+        row.cells[2].text = item['note']
+        row.cells[2].paragraphs[0].runs[0].font.size = Pt(10)
+
     return table
 
 # ─────────────────────────────────────────────
@@ -57,98 +156,50 @@ style.font.name = 'Malgun Gothic'
 style.font.size = Pt(10)
 
 add_heading(doc1, '✨ Seoul Glow Day — 당일 변신 패키지', 1, (31, 73, 125))
-doc1.add_paragraph('하루 안에 피부·외모 변화를 경험하는 K-뷰티 데이트립\n명동 전 구간 도보 이동 | 소그룹 운영').italic = True
+p = doc1.add_paragraph('하루 안에 피부·외모 변화를 경험하는 K-뷰티 데이트립')
+p.runs[0].italic = True
+p2 = doc1.add_paragraph('명동 전 구간 도보 이동 | 소그룹 운영')
+p2.runs[0].italic = True
+
+# 하루 일정 표
+doc1.add_paragraph()
+add_heading(doc1, '🗓️ 하루 일정', 2)
+add_schedule_table(doc1, 'D9E2F3')
+
+# 여행 편의 키트
+doc1.add_paragraph()
+add_heading(doc1, '🎁 여행 편의 키트', 2)
+kit_items = [
+    '한국 eSIM (여행 기간 데이터)',
+    'T-money 교통카드',
+    '여행자 보험',
+    '코스별 예약 확인서',
+    '카카오톡 긴급 연락 (한국어 · 영어)',
+]
+for item in kit_items:
+    doc1.add_paragraph(item, style='List Bullet')
+
+# 가격 안내
+doc1.add_paragraph()
+add_heading(doc1, '💰 가격 안내', 2)
+p = doc1.add_paragraph()
+p.add_run('기본 패키지  ₩399,000').bold = True
 
 doc1.add_paragraph()
-add_heading(doc1, '💰 패키지 가격', 2)
 add_table(doc1,
-    ['구분', '가격'],
-    [['기본 패키지', '₩399,000'], ['큐레이터 동행', '₩50,000~ 별도']],
-    'D9E2F3'
-)
-
-doc1.add_paragraph()
-add_heading(doc1, '📦 기본 패키지에 포함된 것', 2)
-add_table(doc1,
-    ['항목', '내용'],
+    ['큐레이터 동행 구간', '추가 요금', '총 금액'],
     [
-        ['퍼스널컬러 분석', '웜/쿨톤 · 계절 유형 · 얼굴형 · 체형 분석'],
-        ['헤어 & 메이크업', '명동 제휴 헤어숍 스타일링 + 한국식 글로우 메이크업'],
-        ['프로필 촬영', '실내 스튜디오 · 전문 포토그래퍼'],
-        ['한국 eSIM', '여행 기간 데이터 사용'],
-        ['T-money 교통카드', '대중교통 이용 가능'],
-        ['여행자 보험', '당일 여행 중 보장'],
-        ['업체별 예약 확인서', '코스별 예약 정보 사전 발송'],
-        ['카카오톡 긴급 연락', '한국어 · 영어 응대'],
+        ['없음', '—', '₩399,000'],
+        ['1구간', '+₩50,000', '₩449,000'],
+        ['2구간', '+₩80,000', '₩479,000'],
+        ['3구간', '+₩110,000', '₩509,000'],
+        ['4구간', '+₩130,000', '₩529,000'],
+        ['5구간 (전 구간)', '+₩150,000', '₩549,000'],
     ],
     'D9E2F3'
 )
-
-doc1.add_paragraph()
-add_heading(doc1, '🗓️ 하루 스케줄', 2)
-add_table(doc1,
-    ['시간', '코스', '비고'],
-    [
-        ['10:00', '퍼스널컬러 분석', '포함'],
-        ['11:00', '올리브영 & 약국 쇼핑', '쇼핑비 개별 결제'],
-        ['13:30', '피부진단 & 에스테틱', '시술비 개별 결제'],
-        ['15:30', '헤어 & 메이크업', '포함'],
-        ['17:30', '프로필 촬영', '포함'],
-        ['19:30', '해산', '명동역 인근'],
-    ],
-    'D9E2F3'
-)
-doc1.add_paragraph('※ 교통비는 개별 결제 (T-money 카드 제공)').italic = True
-
-doc1.add_paragraph()
-add_heading(doc1, '🏥 병원 시술 예약 (별도)', 2)
-p = doc1.add_paragraph('당일 코스와 별개로 ')
-p.add_run('다른 날짜').bold = True
-p.add_run('에 명동 TOP5 피부과·성형외과 시술 예약을 도와드립니다.')
-for item in ['원하는 시술 + 날짜 선택', '영어 · 중국어 · 일본어 상담 가능 병원 연결', '예약 확인서 발송', '시술비는 병원 현장 결제']:
-    doc1.add_paragraph(item, style='List Bullet')
-
-doc1.add_paragraph()
-add_heading(doc1, '💆 피부진단 & 에스테틱 시술 메뉴 (현장 결제)', 2)
-add_table(doc1,
-    ['시술', '소요 시간', '가격'],
-    [
-        ['기초 페이셜 클렌징', '60분', '₩50,000–80,000'],
-        ['수분 앰플 집중 관리', '60분', '₩80,000–120,000'],
-        ['블랙헤드 & 모공 관리', '60분', '₩80,000–100,000'],
-    ],
-    'D9E2F3'
-)
-
-doc1.add_paragraph()
-add_heading(doc1, '👩‍💼 큐레이터 동행 옵션', 2)
-doc1.add_paragraph('전담 큐레이터가 원하는 구간만 함께 이동하며 통역 · 쇼핑 가이드 · 병원 동행을 도와드립니다.')
-doc1.add_paragraph('※ 구간은 반드시 연속으로 선택 (중간 건너뛰기 불가)').italic = True
-add_table(doc1,
-    ['동행 구간', '추가 요금'],
-    [
-        ['1구간', '₩50,000'],
-        ['2구간', '₩80,000'],
-        ['3구간', '₩110,000'],
-        ['4구간', '₩130,000'],
-        ['5구간 (전 구간)', '₩150,000'],
-    ],
-    'D9E2F3'
-)
-doc1.add_paragraph()
-doc1.add_paragraph('큐레이터 제공 서비스', style='List Bullet').runs[0].bold = True
-for item in ['영어 · 중국어 · 일본어 통역', '퍼스널컬러 기반 쇼핑 1:1 추천', '피부과 · 에스테틱 상담 동행']:
-    doc1.add_paragraph(item, style='List Bullet')
-
-doc1.add_paragraph()
-add_heading(doc1, '❌ 포함되지 않는 것', 2)
-for item in ['교통비 (지하철 · 택시)', '점심식사', '올리브영 · 약국 쇼핑비', '에스테틱 시술비', '병원 시술비']:
-    doc1.add_paragraph(item, style='List Bullet')
-
-doc1.add_paragraph()
-add_heading(doc1, '📌 예약 안내', 2)
-for item in ['최소 3일 전 예약 필요', '카카오톡 채널 또는 이메일로 문의', '병원 시술 예약은 5일 전 요청 권장']:
-    doc1.add_paragraph(item, style='List Bullet')
+doc1.add_paragraph('※ 큐레이터는 원하는 구간만 연속으로 선택 가능합니다').italic = True
+doc1.add_paragraph('※ 지원 언어: 영어 · 중국어 · 일본어').italic = True
 
 doc1.save('/home/user/seolle/packages/고객공유용_당일변신패키지.docx')
 print('고객공유용 완료')
@@ -164,7 +215,8 @@ style2.font.name = 'Malgun Gothic'
 style2.font.size = Pt(10)
 
 add_heading(doc2, '[내부용] Seoul Glow Day — 원가 & 수익 구조', 1, (192, 0, 0))
-doc2.add_paragraph('🔒 내부 공유 전용 — 외부 배포 금지').runs[0].bold = True
+p = doc2.add_paragraph('🔒 내부 공유 전용 — 외부 배포 금지')
+p.runs[0].bold = True
 
 doc2.add_paragraph()
 add_heading(doc2, '[1] 패키지 코스 구성', 2)
