@@ -100,7 +100,7 @@ add_heading(doc, '✨ Seoul Renewal — 2박 3일 토탈 뷰티 리뉴얼', 1, (
 p = doc.add_paragraph('피부·반영구·웰니스까지 — 한국에서 완전히 새로워지는 3일')
 p.runs[0].italic = True
 p.runs[0].font.name = 'Malgun Gothic'
-p2 = doc.add_paragraph('명동·강남 일대  |  큐레이터 동행 옵션')
+p2 = doc.add_paragraph('명동·강남 일대  |  전담 큐레이터 동행 여부 선택')
 p2.runs[0].italic = True
 p2.runs[0].font.name = 'Malgun Gothic'
 
@@ -419,18 +419,14 @@ r.font.name = 'Malgun Gothic'
 
 doc.add_paragraph()
 add_simple_table(doc,
-    ['큐레이터 동행 구간', '추가 요금', '총 금액'],
+    ['큐레이터 동행', '추가 요금', '총 금액'],
     [
-        ['없음', '—', '₩1,990,000'],
-        ['1구간', '+₩50,000', '₩2,040,000'],
-        ['2구간', '+₩80,000', '₩2,070,000'],
-        ['3구간', '+₩110,000', '₩2,100,000'],
-        ['4구간', '+₩130,000', '₩2,120,000'],
-        ['5구간 (전 구간)', '+₩150,000', '₩2,140,000'],
+        ['미동행', '—', '₩1,990,000'],
+        ['동행 (3일 풀동행)', '+₩500,000', '₩2,490,000'],
     ],
     'D9E2F3'
 )
-doc.add_paragraph('※ 큐레이터는 원하는 구간만 연속으로 선택 가능합니다').runs[0].font.name = 'Malgun Gothic'
+doc.add_paragraph('※ 큐레이터는 3일 전 일정 풀 동행 — 구간 분리 불가').runs[0].font.name = 'Malgun Gothic'
 doc.add_paragraph('※ 지원 언어: 영어 · 중국어 · 일본어').runs[0].font.name = 'Malgun Gothic'
 
 doc.add_paragraph()
